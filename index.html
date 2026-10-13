@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hebrew Verb Builder</title>
+<style>
+:root{
+  --bg:#faf9f6;--card:#ffffff;--fg:#1f1e1b;--muted:#6b6a65;--line:#d6d3cb;--line-strong:#a9a69d;
+  --accent:#2f5fb3;--accent-bg:#e6eefb;--ok:#2e7d32;--ok-bg:#e7f4e8;--bad:#b3261e;--bad-bg:#fbe9e7;
+  --radius:10px;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#1b1a18;--card:#262522;--fg:#ecebe6;--muted:#a4a29a;--line:#3d3b36;--line-strong:#6a6760;
+    --accent:#8ab4f8;--accent-bg:#23334f;--ok:#81c784;--ok-bg:#1f3322;--bad:#f2867d;--bad-bg:#3a2321;
+  }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+main{max-width:760px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;font-weight:600;margin:0 0 4px}
+.sub{color:var(--muted);font-size:14px;margin:0 0 20px}
+.he{font-family:"SBL Hebrew","Ezra SIL","Noto Sans Hebrew","Noto Serif Hebrew","Frank Ruhl Libre","Times New Roman","Arial Unicode MS","DejaVu Sans",serif;direction:rtl;unicode-bidi:isolate}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.between{justify-content:space-between}
+button,select{font:inherit;color:var(--fg)}
+button{cursor:pointer}
+select{background:var(--card);border:1px solid var(--line-strong);border-radius:var(--radius);padding:6px 10px}
+.btn{background:var(--card);border:1px solid var(--line-strong);border-radius:var(--radius);padding:7px 14px;font-size:14px}
+.btn:hover{border-color:var(--accent)}
+.seg{padding:6px 14px;border-radius:var(--radius);border:1px solid var(--line-strong);background:transparent;font-size:14px}
+.seg.on{background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-top:16px}
+.small{font-size:13px;color:var(--muted)}
+.prompt{font-size:20px;font-weight:600;margin:2px 0 14px}
+#asm{display:flex;flex-direction:row;direction:rtl;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:8px}
+.slot,.stem{min-width:84px;min-height:82px;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;border-radius:var(--radius);padding:6px 10px;direction:ltr}
+.slot{border:1.5px dashed var(--line-strong);background:transparent}
+.slot:focus-visible,.tile:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.slot.over{border-color:var(--accent);background:var(--accent-bg)}
+.slot.ok{border:1.5px solid var(--ok);background:var(--ok-bg)}
+.slot.bad{border:1.5px solid var(--bad);background:var(--bad-bg)}
+.stem{border:1px solid var(--line-strong);background:var(--card)}
+.lbl{font-size:12px;color:var(--muted)}
+.slot .he{font-size:28px;line-height:1.35}
+.stem .he{font-size:32px;line-height:1.35}
+.tile{display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:66px;padding:8px 12px;border:1px solid var(--line-strong);border-radius:var(--radius);background:var(--card);cursor:grab;user-select:none}
+.tile .he{font-size:28px;line-height:1.35}
+.tile .tr{font-size:12px;color:var(--muted)}
+.tile.sel{border-color:var(--accent);background:var(--accent-bg)}
+.gap{width:14px}
+#fb{min-height:3.4em;font-size:14px;margin-top:12px}
+.ok-t{color:var(--ok)}.bad-t{color:var(--bad)}
+.full{font-size:24px}
+</style>
+</head>
+<body>
+<main>
+<h1>Hebrew Verb Builder</h1>
+<p class="sub">Build each inflected form by dragging a conjunction, prefix and suffix onto the stem.</p>
+
+<div class="row between">
+  <div class="row">
+    <label for="verb" class="small">Verb</label>
+    <select id="verb"></select>
+  </div>
+  <div class="small" id="score">Score 0 / 0</div>
+</div>
+<div class="row" id="modes" style="margin-top:12px"></div>
+
+<section class="card">
+  <div class="small" id="count"></div>
+  <div class="prompt" id="prompt"></div>
+
+  <div id="asm">
+    <button class="slot" id="s-con" type="button"></button>
+    <button class="slot" id="s-pre" type="button"></button>
+    <div class="stem"><span class="he" id="stem"></span><span class="lbl">stem</span></div>
+    <button class="slot" id="s-suf" type="button"></button>
+  </div>
+  <div class="small" style="text-align:center">Hebrew reads right to left, so the first slot sits on the right. The dotted circle ◌ marks the stem's last letter, which carries the vowel of the ending.</div>
+  <div class="small" style="text-align:center;margin:4px 0 14px" id="hint"></div>
+
+  <div class="small" style="margin-bottom:6px">Drag a tile into a slot, or tap a tile and then tap a slot. Tap a filled slot to clear it.</div>
+  <div class="row" id="bank"></div>
+
+  <div class="row" style="margin-top:16px">
+    <button class="btn" id="check" type="button">Check</button>
+    <button class="btn" id="show" type="button">Show answer</button>
+    <button class="btn" id="next" type="button">Next form</button>
+    <button class="btn" id="shuf" type="button">Shuffle</button>
+  </div>
+  <div id="fb" aria-live="polite"></div>
+</section>
+</main>
+
+<script>
+/*
+ HOW TO ADD A VERB
+ -----------------
+ 1. Add an entry to VERBS (below the "VERB DATA" banner). Each verb has:
+      name   – label shown in the dropdown
+      root   – the stem shown in the middle of the builder
+      forms  – for each mode (perf, imp, way, weq) a list of forms:
+                 l  label shown to the learner
+                 c  conjunction tile id   (way, weq only)
+                 p  prefix tile id        (imp, way only)
+                 s  suffix tile id
+                 w  the full pointed word shown after a correct answer
+                 n  optional note
+ 2. If the verb needs tiles that do not exist yet (weak verbs often do), add
+    them under that verb's optional `tiles` key, using the same library names
+    as LIB (CON, PRE, PREW, SUFP, SUFI), e.g.
+      tiles: { SUFP: { ah: { he: 'ָה', tr: '-ah' } } }
+    Tiles with the same id override the shared ones, new ids are added.
+ 3. Optional: a verb can also carry `hints: { way: '...' }` to replace a mode hint.
+ Nothing else needs to change; the dropdown, tile bank and checking are generated.
+*/
+
+/* ---------- display settings ---------- */
+const PH = '\u25CC'; /* dotted circle placeholder for the stem's last letter */
+
+/* ---------- shared tile libraries ---------- */
+const LIB = {
+  CON: {
+    wa: { he: 'וַ', tr: 'wa-' },
+    wA: { he: 'וָ', tr: 'wā-' },
+    we: { he: 'וְ', tr: 'we-' },
+    u:  { he: 'וּ', tr: 'u-' }
+  },
+  PRE: {
+    y: { he: 'יִ', tr: 'yi-' },
+    t: { he: 'תִּ', tr: 'ti-' },
+    a: { he: 'אֶ', tr: 'e-' },
+    n: { he: 'נִ', tr: 'ni-' }
+  },
+  PREW: {
+    y: { he: 'יִּ', tr: 'yyi-' },
+    t: { he: 'תִּ', tr: 'tti-' },
+    a: { he: 'אֶ', tr: 'e-' },
+    n: { he: 'נִּ', tr: 'nni-' }
+  },
+  SUFP: {
+    none: { he: '—', tr: 'no ending' },
+    ah:  { he: PH + 'ָה', tr: '-ah' },
+    ta:  { he: 'תָּ', tr: '-ta' },
+    t:   { he: 'תְּ', tr: '-t' },
+    ti:  { he: 'תִּי', tr: '-ti' },
+    u:   { he: 'וּ', tr: '-u' },
+    tem: { he: 'תֶּם', tr: '-tem' },
+    ten: { he: 'תֶּן', tr: '-ten' },
+    nu:  { he: 'נוּ', tr: '-nu' }
+  },
+  SUFI: {
+    none: { he: '—', tr: 'no ending' },
+    i:   { he: PH + 'ִי', tr: '-i' },
+    u:   { he: 'וּ', tr: '-u' },
+    nah: { he: 'נָה', tr: '-nah' }
+  }
+};
+
+/* ---------- mode definitions ---------- */
+/* con/pre = does the mode use that slot; lib names for each slot */
+const MODES = {
+  perf: { name: 'Perfect',   con: false, pre: false, libs: { suf: 'SUFP' },
+          hint: 'Perfect: suffixes only. The 3 m.s. has no ending.' },
+  imp:  { name: 'Imperfect', con: false, pre: true,  libs: { pre: 'PRE', suf: 'SUFI' },
+          hint: 'Imperfect: a prefix on every form, plus a suffix on some.' },
+  way:  { name: 'Wayyiqtol', con: true,  pre: true,  libs: { con: 'CON', pre: 'PREW', suf: 'SUFI' },
+          hint: 'Wayyiqtol: וַ plus the imperfect, with the prefix letter doubled (dagesh). The prefix tiles show the doubling.' },
+  weq:  { name: 'Weqatal',   con: true,  pre: false, libs: { con: 'CON', suf: 'SUFP' },
+          hint: 'Weqatal: a conjunction plus the perfect. The vowel of the conjunction can change.' }
+};
+const MODE_ORDER = ['perf', 'imp', 'way', 'weq'];
+const KIND_LABEL = { con: 'conjunction', pre: 'prefix', suf: 'suffix' };
+
+/* =====================  VERB DATA  ===================== */
+const VERBS = {
+  qatal: {
+    name: 'קָטַל — kill (strong verb)',
+    root: 'קטל',
+    forms: {
+      perf: [
+        { l: '1 c.s. (I killed)',        s: 'ti',   w: 'קָטַלְתִּי' },
+        { l: '2 m.s. (you killed)',      s: 'ta',   w: 'קָטַלְתָּ' },
+        { l: '2 f.s. (you killed)',      s: 't',    w: 'קָטַלְתְּ' },
+        { l: '3 m.s. (he killed)',       s: 'none', w: 'קָטַל' },
+        { l: '3 f.s. (she killed)',      s: 'ah',   w: 'קָטְלָה' },
+        { l: '1 c.pl. (we killed)',      s: 'nu',   w: 'קָטַלְנוּ' },
+        { l: '2 m.pl. (you all killed)', s: 'tem',  w: 'קְטַלְתֶּם' },
+        { l: '2 f.pl. (you all killed)', s: 'ten',  w: 'קְטַלְתֶּן' },
+        { l: '3 c.pl. (they killed)',    s: 'u',    w: 'קָטְלוּ' }
+      ],
+      imp: [
+        { l: '1 c.s. (I will kill)',          p: 'a', s: 'none', w: 'אֶקְטֹל' },
+        { l: '2 m.s. (you will kill)',        p: 't', s: 'none', w: 'תִּקְטֹל', n: 'Same form as 3 f.s.; context decides.' },
+        { l: '2 f.s. (you will kill)',        p: 't', s: 'i',    w: 'תִּקְטְלִי' },
+        { l: '3 m.s. (he will kill)',         p: 'y', s: 'none', w: 'יִקְטֹל' },
+        { l: '3 f.s. (she will kill)',        p: 't', s: 'none', w: 'תִּקְטֹל', n: 'Same form as 2 m.s.; context decides.' },
+        { l: '1 c.pl. (we will kill)',        p: 'n', s: 'none', w: 'נִקְטֹל' },
+        { l: '2 m.pl. (you all will kill)',   p: 't', s: 'u',    w: 'תִּקְטְלוּ' },
+        { l: '2 f.pl. (you all will kill)',   p: 't', s: 'nah',  w: 'תִּקְטֹלְנָה', n: 'Same form as 3 f.pl.; context decides.' },
+        { l: '3 m.pl. (they will kill)',      p: 'y', s: 'u',    w: 'יִקְטְלוּ' },
+        { l: '3 f.pl. (they will kill)',      p: 't', s: 'nah',  w: 'תִּקְטֹלְנָה', n: 'Same form as 2 f.pl.; context decides.' }
+      ],
+      way: [
+        { l: '1 c.s. (and I killed)',         c: 'wA', p: 'a', s: 'none', w: 'וָאֶקְטֹל', n: 'No doubling: א cannot take a dagesh, so וַ lengthens to וָ instead.' },
+        { l: '2 m.s. (and you killed)',       c: 'wa', p: 't', s: 'none', w: 'וַתִּקְטֹל', n: 'Same form as 3 f.s.; context decides.' },
+        { l: '2 f.s. (and you killed)',       c: 'wa', p: 't', s: 'i',    w: 'וַתִּקְטְלִי' },
+        { l: '3 m.s. (and he killed)',        c: 'wa', p: 'y', s: 'none', w: 'וַיִּקְטֹל' },
+        { l: '3 f.s. (and she killed)',       c: 'wa', p: 't', s: 'none', w: 'וַתִּקְטֹל', n: 'Same form as 2 m.s.; context decides.' },
+        { l: '1 c.pl. (and we killed)',       c: 'wa', p: 'n', s: 'none', w: 'וַנִּקְטֹל' },
+        { l: '2 m.pl. (and you all killed)',  c: 'wa', p: 't', s: 'u',    w: 'וַתִּקְטְלוּ' },
+        { l: '2 f.pl. (and you all killed)',  c: 'wa', p: 't', s: 'nah',  w: 'וַתִּקְטֹלְנָה', n: 'Same form as 3 f.pl.; context decides.' },
+        { l: '3 m.pl. (and they killed)',     c: 'wa', p: 'y', s: 'u',    w: 'וַיִּקְטְלוּ' },
+        { l: '3 f.pl. (and they killed)',     c: 'wa', p: 't', s: 'nah',  w: 'וַתִּקְטֹלְנָה', n: 'Same form as 2 f.pl.; context decides.' }
+      ],
+      weq: [
+        { l: '1 c.s. (and I will kill)',          c: 'we', s: 'ti',   w: 'וְקָטַלְתִּי' },
+        { l: '2 m.s. (and you will kill)',        c: 'we', s: 'ta',   w: 'וְקָטַלְתָּ' },
+        { l: '2 f.s. (and you will kill)',        c: 'we', s: 't',    w: 'וְקָטַלְתְּ' },
+        { l: '3 m.s. (and he will kill)',         c: 'we', s: 'none', w: 'וְקָטַל' },
+        { l: '3 f.s. (and she will kill)',        c: 'we', s: 'ah',   w: 'וְקָטְלָה' },
+        { l: '1 c.pl. (and we will kill)',        c: 'we', s: 'nu',   w: 'וְקָטַלְנוּ' },
+        { l: '2 m.pl. (and you all will kill)',   c: 'u',  s: 'tem',  w: 'וּקְטַלְתֶּם', n: 'וְ becomes וּ before a letter with a shewa.' },
+        { l: '2 f.pl. (and you all will kill)',   c: 'u',  s: 'ten',  w: 'וּקְטַלְתֶּן', n: 'וְ becomes וּ before a letter with a shewa.' },
+        { l: '3 c.pl. (and they will kill)',      c: 'we', s: 'u',    w: 'וְקָטְלוּ' }
+      ]
+    }
+  }
+};
+/* ===================  END VERB DATA  =================== */
+
+/* ---------- app state ---------- */
+const $ = id => document.getElementById(id);
+const st = { verb: Object.keys(VERBS)[0], mode: 'perf', order: [], i: 0,
+             con: null, pre: null, suf: null, sel: null, right: 0, tried: 0, done: false };
+
+const verb = () => VERBS[st.verb];
+const mode = () => MODES[st.mode];
+const forms = () => verb().forms[st.mode] || [];
+const cur = () => forms()[st.order[st.i]];
+const hasSlot = k => k === 'suf' || mode()[k];
+function lib(kind) {
+  const name = mode().libs[kind];
+  const extra = (verb().tiles && verb().tiles[name]) || {};
+  return Object.assign({}, LIB[name], extra);
+}
+function modeHint() {
+  return (verb().hints && verb().hints[st.mode]) || mode().hint;
+}
+
+function setOrder(shuffle) {
+  const a = forms().map((_, k) => k);
+  if (shuffle) {
+    for (let j = a.length - 1; j > 0; j--) {
+      const r = Math.floor(Math.random() * (j + 1));
+      [a[j], a[r]] = [a[r], a[j]];
+    }
+  }
+  st.order = a; st.i = 0;
+}
+
+function tileHTML(kind, id, d) {
+  return '<button type="button" class="tile" draggable="true" data-kind="' + kind + '" data-id="' + id +
+    '"><span class="he" lang="he">' + d.he + '</span><span class="tr">' + d.tr + '</span></button>';
+}
+
+function renderBank() {
+  let h = '', first = true;
+  ['con', 'pre', 'suf'].forEach(k => {
+    if (!hasSlot(k)) return;
+    if (!first) h += '<span class="gap"></span>';
+    first = false;
+    const L = lib(k);
+    for (const id in L) h += tileHTML(k, id, L[id]);
+  });
+  $('bank').innerHTML = h;
+  $('bank').querySelectorAll('.tile').forEach(t => {
+    t.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', t.dataset.kind + ':' + t.dataset.id));
+    t.addEventListener('click', () => {
+      const same = st.sel && st.sel.kind === t.dataset.kind && st.sel.id === t.dataset.id;
+      st.sel = same ? null : { kind: t.dataset.kind, id: t.dataset.id };
+      markSel();
+    });
+  });
+}
+
+function markSel() {
+  $('bank').querySelectorAll('.tile').forEach(t => {
+    t.classList.toggle('sel', !!st.sel && st.sel.kind === t.dataset.kind && st.sel.id === t.dataset.id);
+  });
+}
+
+const SLOT_ID = { con: 's-con', pre: 's-pre', suf: 's-suf' };
+function renderSlots() {
+  ['con', 'pre', 'suf'].forEach(k => {
+    const el = $(SLOT_ID[k]);
+    el.style.display = hasSlot(k) ? 'inline-flex' : 'none';
+    el.className = 'slot';
+    const v = st[k];
+    el.innerHTML = v
+      ? '<span class="he" lang="he">' + lib(k)[v].he + '</span><span class="lbl">' + lib(k)[v].tr + '</span>'
+      : '<span class="lbl">' + KIND_LABEL[k] + '</span>';
+  });
+}
+
+function renderAll() {
+  const f = cur();
+  $('stem').textContent = verb().root;
+  $('stem').setAttribute('lang', 'he');
+  $('count').textContent = mode().name + ' · form ' + (st.i + 1) + ' of ' + forms().length;
+  $('prompt').textContent = f.l;
+  $('hint').textContent = modeHint();
+  $('score').textContent = 'Score ' + st.right + ' / ' + st.tried;
+  st.con = st.pre = st.suf = null; st.sel = null; st.done = false;
+  $('fb').innerHTML = '';
+  renderBank(); renderSlots();
+}
+
+function msg(t, cls) { $('fb').innerHTML = '<span class="' + (cls || '') + '">' + t + '</span>'; }
+
+function place(kind, id) {
+  if (!hasSlot(kind)) return;
+  st.sel = null; markSel();
+  st[kind] = id;
+  renderSlots(); $('fb').innerHTML = '';
+}
+
+function wire(kind) {
+  const slot = $(SLOT_ID[kind]);
+  slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('over'); });
+  slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+  slot.addEventListener('drop', e => {
+    e.preventDefault(); slot.classList.remove('over');
+    const d = (e.dataTransfer.getData('text/plain') || '').split(':');
+    if (d[0] !== kind) { msg('That slot takes a ' + KIND_LABEL[kind] + ' tile.', 'bad-t'); return; }
+    place(kind, d[1]);
+  });
+  slot.addEventListener('click', () => {
+    if (st.sel) {
+      if (st.sel.kind !== kind) { msg('That slot takes a ' + KIND_LABEL[kind] + ' tile.', 'bad-t'); return; }
+      place(kind, st.sel.id);
+    } else if (st[kind]) {
+      st[kind] = null; renderSlots(); $('fb').innerHTML = '';
+    }
+  });
+}
+
+function check() {
+  const f = cur();
+  if (mode().con && !st.con) return msg('Drag a conjunction tile into the conjunction slot first.', 'bad-t');
+  if (mode().pre && !st.pre) return msg('Drag a prefix tile into the prefix slot first.', 'bad-t');
+  if (!st.suf) return msg('Drag a suffix tile into the suffix slot first. Use the no-ending tile if the form has none.', 'bad-t');
+  const conOK = !mode().con || st.con === f.c;
+  const preOK = !mode().pre || st.pre === f.p;
+  const sufOK = st.suf === f.s;
+  const all = conOK && preOK && sufOK;
+  if (!st.done) { st.tried++; if (all) st.right++; }
+  st.done = true;
+  renderSlots();
+  if (mode().con) $('s-con').classList.add(conOK ? 'ok' : 'bad');
+  if (mode().pre) $('s-pre').classList.add(preOK ? 'ok' : 'bad');
+  $('s-suf').classList.add(sufOK ? 'ok' : 'bad');
+  $('score').textContent = 'Score ' + st.right + ' / ' + st.tried;
+  if (all) {
+    $('fb').innerHTML = '<div class="ok-t">Correct. Full form: <span class="he full" lang="he">' + f.w + '</span></div>' +
+      (f.n ? '<div class="small" style="margin-top:4px">' + f.n + '</div>' : '') +
+      '<div class="small" style="margin-top:4px">Note that the stem vowels shift as endings are added.</div>';
+  } else {
+    const w = [];
+    if (!conOK) w.push('conjunction');
+    if (!preOK) w.push('prefix');
+    if (!sufOK) w.push('suffix');
+    msg('Not quite: check the ' + w.join(' and ') + '. Adjust and check again, or show the answer.', 'bad-t');
+    st.done = false;
+  }
+}
+
+function show() {
+  const f = cur();
+  st.con = f.c || null; st.pre = f.p || null; st.suf = f.s;
+  renderSlots();
+  st.done = true;
+  $('fb').innerHTML = '<div class="small">Answer: <span class="he full" lang="he" style="color:var(--fg)">' + f.w + '</span></div>' +
+    (f.n ? '<div class="small" style="margin-top:4px">' + f.n + '</div>' : '');
+}
+
+function next() {
+  if (st.i < forms().length - 1) { st.i++; renderAll(); }
+  else {
+    $('prompt').textContent = 'Round complete';
+    $('count').textContent = '';
+    $('fb').innerHTML = '<span class="small">You finished all ' + forms().length + ' forms. Press Shuffle to go again, or switch mode or verb.</span>';
+  }
+}
+
+function resetRun(shuffle) { st.right = 0; st.tried = 0; setOrder(shuffle); renderAll(); }
+
+function setMode(m) {
+  st.mode = m;
+  MODE_ORDER.forEach(k => { const b = $('m-' + k); if (b) b.classList.toggle('on', k === m); });
+  resetRun(false);
+}
+
+function buildControls() {
+  const sel = $('verb');
+  sel.innerHTML = Object.keys(VERBS).map(id => '<option value="' + id + '">' + VERBS[id].name + '</option>').join('');
+  sel.addEventListener('change', () => {
+    st.verb = sel.value;
+    if (!forms().length) st.mode = MODE_ORDER.find(m => verb().forms[m] && verb().forms[m].length);
+    buildModes();
+    setMode(st.mode);
+  });
+  buildModes();
+}
+
+function buildModes() {
+  const box = $('modes');
+  box.innerHTML = '';
+  MODE_ORDER.forEach(k => {
+    if (!(verb().forms[k] && verb().forms[k].length)) return;
+    const b = document.createElement('button');
+    b.type = 'button'; b.id = 'm-' + k; b.className = 'seg' + (k === st.mode ? ' on' : '');
+    b.textContent = MODES[k].name;
+    b.addEventListener('click', () => setMode(k));
+    box.appendChild(b);
+  });
+}
+
+wire('con'); wire('pre'); wire('suf');
+$('check').onclick = check;
+$('show').onclick = show;
+$('next').onclick = next;
+$('shuf').onclick = () => resetRun(true);
+buildControls();
+setOrder(false);
+renderAll();
+</script>
+</body>
+</html>
